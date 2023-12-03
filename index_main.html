@@ -1,0 +1,270 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <title>Admin Dashboard</title>
+  <link rel="stylesheet" href="https://stackpath.bootstrapcdn.com/bootstrap/4.5.2/css/bootstrap.min.css">
+  <style>
+    .selected-row {
+      background-color: #f2f2f2;
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <h1>Admin Dashboard</h1>
+    
+    <div class="row mb-3">
+      <div class="col-md-6">
+        <input type="text" id="searchInput" class="form-control" placeholder="Search...">
+      </div>
+      <div class="col-md-6 text-right">
+        <button id="deleteSelectedBtn" class="btn btn-danger" disabled>Delete Selected</button>
+      </div>
+    </div>
+    
+    <table id="dataTable" class="table">
+      <thead>
+        <tr>
+          <th></th>
+          <th>ID</th>
+          <th>Name</th>
+          <th>Email</th>
+          <th>Role</th>
+          <th>Actions</th>
+        </tr>
+      </thead>
+      <tbody></tbody>
+    </table>
+
+    <nav>
+      <ul id="pagination" class="pagination"></ul>
+    </nav>
+  </div>
+
+  <script src="https://code.jquery.com/jquery-3.5.1.slim.min.js"></script>
+  <script src="https://stackpath.bootstrapcdn.com/bootstrap/4.5.2/js/bootstrap.min.js"></script>
+
+  <script>
+    let data = []; // Store the fetched data
+    let currentPage = 1; // Current page number
+    let selectedRows = []; // Array to store selected row IDs
+
+    // Fetch data from API
+    async function fetchData() {
+      try {
+        const response = await fetch('https://geektrust.s3-ap-southeast-1.amazonaws.com/adminui-problem/members.json');
+        const jsonData = await response.json();
+        data = jsonData.sort((a, b) => a.id - b.id); // Sort data by ID
+        return data;
+      } catch (error) {
+        console.error('Error:', error);
+        return [];
+      }
+    }
+
+    // Display data in the table
+    function renderTable() {
+      const tableBody = document.querySelector('#dataTable tbody');
+      tableBody.innerHTML = '';
+
+      const startIndex = (currentPage - 1) * 10;
+      const endIndex = startIndex + 10;
+      const pageData = data.slice(startIndex, endIndex);
+
+      pageData.forEach(item => {
+        const row = `
+          <tr data-id="${item.id}" class="${selectedRows.includes(item.id) ? 'selected-row' : ''}">
+            <td><input type="checkbox" class="row-checkbox"></td>
+            <td>${item.id}</td>
+            <td>${item.name}</td>
+            <td>${item.email}</td>
+            <td>${item.role}</td>
+            <td>
+              <button class="btn btn-sm btn-primary edit-btn">Edit</button>
+              <button class="btn btn-sm btn-danger delete-btn">Delete</button>
+            </td>
+          </tr>
+        `;
+        tableBody.innerHTML += row;
+      });
+
+      // Update delete selected button state
+      const deleteSelectedBtn = document.querySelector('#deleteSelectedBtn');
+      deleteSelectedBtn.disabled = selectedRows.length === 0;
+    }
+
+    // Perform search based on input value
+    function performSearch() {
+      const input = document.querySelector('#searchInput');
+      const searchText = input.value.toLowerCase();
+      const filteredData = data.filter(item =>
+        item.id.toLowerCase().includes(searchText) ||
+        item.name.toLowerCase().includes(searchText) ||
+        item.email.toLowerCase().includes(searchText) ||
+        item.role.toLowerCase().includes(searchText)
+      );
+      console.log(filteredData,"here")
+      renderPagination(filteredData);
+      renderTable();
+    }
+
+    // Pagination
+    function renderPagination(filteredData) {
+      const pageSize = 10; // Number of items per page
+      const totalPages = Math.ceil(filteredData.length / pageSize);
+      const paginationElement = document.querySelector('#pagination');
+      paginationElement.innerHTML = '';
+
+      let pageNumbers = [];
+      for (let i = 1; i <= totalPages; i++) {
+        pageNumbers.push(i);
+      }
+
+      const firstPageButton = `
+        <li class="page-item first-page">
+          <a class="page-link" href="#" aria-label="First">
+            <span aria-hidden="true">&laquo;</span>
+          </a>
+        </li>
+      `;
+      paginationElement.innerHTML += firstPageButton;
+
+      const previousPageButton = `
+        <li class="page-item previous-page">
+          <a class="page-link" href="#" aria-label="Previous">
+            <span aria-hidden="true">&lt;</span>
+          </a>
+        </li>
+      `;
+      paginationElement.innerHTML += previousPageButton;
+
+      pageNumbers.forEach(page => {
+        const pageButton = `
+          <li class="page-item page-number">
+            <a class="page-link" href="#">${page}</a>
+          </li>
+        `;
+        paginationElement.innerHTML += pageButton;
+      });
+
+      const nextPageButton = `
+        <li class="page-item next-page">
+          <a class="page-link" href="#" aria-label="Next">
+            <span aria-hidden="true">&gt;</span>
+          </a>
+        </li>
+      `;
+      paginationElement.innerHTML += nextPageButton;
+
+      const lastPageButton = `
+        <li class="page-item last-page">
+          <a class="page-link" href="#" aria-label="Last">
+            <span aria-hidden="true">&raquo;</span>
+          </a>
+        </li>
+      `;
+      paginationElement.innerHTML += lastPageButton;
+
+      // Add event listeners to pagination buttons
+      const pageButtons = document.querySelectorAll('.page-number');
+      pageButtons.forEach(button => {
+        button.addEventListener('click', () => {
+          currentPage = parseInt(button.textContent);
+          renderTable();
+        });
+      });
+
+      const firstPageButtonElement = document.querySelector('.first-page');
+      firstPageButtonElement.addEventListener('click', () => {
+        currentPage = 1;
+        renderTable();
+      });
+
+      const previousPageButtonElement = document.querySelector('.previous-page');
+      previousPageButtonElement.addEventListener('click', () => {
+        if (currentPage > 1) {
+          currentPage--;
+          renderTable();
+        }
+      });
+
+      const nextPageButtonElement = document.querySelector('.next-page');
+      nextPageButtonElement.addEventListener('click', () => {
+        if (currentPage < totalPages) {
+          currentPage++;
+          renderTable();
+        }
+      });
+
+      const lastPageButtonElement = document.querySelector('.last-page');
+      lastPageButtonElement.addEventListener('click', () => {
+        currentPage = totalPages;
+        renderTable();
+      });
+    }
+
+    // Add event listeners
+    document.querySelector('#searchInput').addEventListener('input', performSearch);
+
+    document.querySelector('#deleteSelectedBtn').addEventListener('click', () => {
+      // Delete selected rows
+      data = data.filter(item => !selectedRows.includes(item.id));
+      selectedRows = [];
+      renderTable();
+    });
+
+    document.querySelector('#dataTable').addEventListener('click', event => {
+      if (event.target.classList.contains('edit-btn')) {
+        const row = event.target.closest('tr');
+        const id = row.getAttribute('data-id');
+        row.contentEditable = true;
+        row.classList.add('selected-row');
+        row.focus();
+
+        const saveButton = document.createElement('button');
+        saveButton.classList.add('btn', 'btn-sm', 'btn-success', 'save-btn');
+        saveButton.textContent = 'Save';
+        event.target.parentNode.replaceChild(saveButton, event.target);
+
+        saveButton.addEventListener('click', () => {
+          row.contentEditable = false;
+          row.classList.remove('selected-row');
+          saveButton.parentNode.replaceChild(event.target, saveButton);
+          // Update the data object with the edited values
+          const editedItem = data.find(item => item.id === id);
+          editedItem.name = row.cells[2].textContent;
+          editedItem.email = row.cells[3].textContent;
+          editedItem.role = row.cells[4].textContent;
+        });
+      } else if (event.target.classList.contains('delete-btn')) {
+        const row = event.target.closest('tr');
+        const id = row.getAttribute('data-id');
+        data = data.filter(item => item.id !== id);
+        renderTable();
+      }
+    });
+
+    document.querySelector('#dataTable').addEventListener('change', event => {
+      if (event.target.classList.contains('row-checkbox')) {
+        const row = event.target.closest('tr');
+        const id = row.getAttribute('data-id');
+        if (event.target.checked) {
+          selectedRows.push(id);
+        } else {
+          selectedRows = selectedRows.filter(rowId => rowId !== id);
+        }
+        row.classList.toggle('selected-row');
+        const deleteSelectedBtn = document.querySelector('#deleteSelectedBtn');
+        deleteSelectedBtn.disabled = selectedRows.length === 0;
+      }
+    });
+
+    // Initial data fetch and rendering
+    fetchData()
+      .then(() => {
+        renderPagination(data);
+        renderTable();
+      });
+  </script>
+</body>
+</html>
